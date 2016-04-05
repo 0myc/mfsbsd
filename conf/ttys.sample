@@ -29,7 +29,7 @@
 # when going to single-user mode.
 console	none				unknown	off secure
 #
-ttyv0	"/usr/libexec/getty Pc"		xterm	on  secure
+ttyv0	"/usr/libexec/getty install"		xterm	on  secure
 # Virtual terminals
 ttyv1	"/usr/libexec/getty Pc"		xterm	on  secure
 ttyv2	"/usr/libexec/getty Pc"		xterm	on  secure
@@ -41,8 +41,8 @@ ttyv7	"/usr/libexec/getty Pc"		xterm	on  secure
 ttyv8	"/usr/local/bin/xdm -nodaemon"	xterm	off secure
 # Serial terminals
 # The 'dialup' keyword identifies dialin lines to login, fingerd etc.
-ttyu0	"/usr/libexec/getty 3wire"	vt100	onifconsole secure
-ttyu1	"/usr/libexec/getty 3wire"	vt100	onifconsole secure
+ttyu0	"/usr/libexec/getty watch"	xterm	onifconsole secure
+ttyu1	"/usr/libexec/getty watch"	xterm	onifconsole secure
 ttyu2	"/usr/libexec/getty 3wire"	vt100	onifconsole secure
 ttyu3	"/usr/libexec/getty 3wire"	vt100	onifconsole secure
 # Dumb console

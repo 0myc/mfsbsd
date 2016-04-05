@@ -25,8 +25,9 @@ MFSROOT_MAXSIZE?=80m
 # -DCUSTOM -DBUILDKERNEL or CUSTOM=1 BUILDKERNEL=1
 #
 # For all of this use
-# -DCUSTOM -DBUILDWORLD -DBUILDKERNEL or CUSTOM=1 BUILDKERNEL=1 BUILDWORLD=1
+# -DCUSTOM -DBUILDWORLD -DBUILDKERNEL or CUSTOM=1 BUILDKERNEL=1 BUILDWORLD=1 INSTALLER_URL=<url>
 #
+
 
 #
 # Paths
@@ -78,7 +79,7 @@ BSDLABEL=bsdlabel
 DOFS=${TOOLSDIR}/doFS.sh
 SCRIPTS=mdinit mfsbsd interfaces packages
 BOOTMODULES=acpi ahci
-MFSMODULES=geom_mirror geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs \
+MFSMODULES=geom_mirror geom_stripe geom_nop opensolaris zfs ext2fs snp smbus ipmi ntfs nullfs tmpfs \
 	aesni crypto cryptodev geom_eli
 #
 
@@ -298,11 +299,8 @@ ${WRKDIR}/.prune_done:
 
 packages: install prune ${WRKDIR}/.packages_done
 ${WRKDIR}/.packages_done:
+.  if exists(${PKG_STATIC})
 	@echo -n "Installing pkgng ..."
-.  if !exists(${PKG_STATIC})
-	@echo "pkg-static not found at: ${PKG_STATIC}"
-	${_v}exit 1
-.  endif
 	${_v}mkdir -p ${_DESTDIR}/usr/local/sbin
 	${_v}${INSTALL} -o root -g wheel -m 0755 ${PKG_STATIC} ${_DESTDIR}/usr/local/sbin/
 	${_v}${LN} -sf pkg-static ${_DESTDIR}/usr/local/sbin/pkg
@@ -325,12 +323,15 @@ ${WRKDIR}/.packages_done:
 		${RM} -rf ${_DESTDIR}/packages; \
 		echo " done"; \
 	fi
+.   else
+	@echo "pkg-static not found at: ${PKG_STATIC}"
+.   endif
 	${_v}${TOUCH} ${WRKDIR}/.packages_done
 
 config: install ${WRKDIR}/.config_done
 ${WRKDIR}/.config_done:
 	@echo -n "Installing configuration scripts and files ..."
-.for FILE in boot.config loader.conf rc.conf rc.local resolv.conf interfaces.conf ttys
+.for FILE in boot.config loader.conf rc.conf rc.local resolv.conf interfaces.conf ttys gettytab
 . if !exists(${CFGDIR}/${FILE}) && !exists(${CFGDIR}/${FILE}.sample)
 	@echo "Missing ${CFGDIR}/${FILE}.sample" && exit 1
 . endif
@@ -357,7 +358,7 @@ ${WRKDIR}/.config_done:
    else \
 		${INSTALL} -m 0744 ${CFGDIR}/rc.local.sample ${_DESTDIR}/etc/rc.local; \
    fi
-.for FILE in rc.conf ttys
+.for FILE in rc.conf ttys gettytab
 	${_v}if [ -f "${CFGDIR}/${FILE}" ]; then \
 		${INSTALL} -m 0644 ${CFGDIR}/${FILE} ${_DESTDIR}/etc/${FILE}; \
 	else \
@@ -380,6 +381,11 @@ ${WRKDIR}/.config_done:
 	${_v}${MKDIR} ${_DESTDIR}/root/bin
 	${_v}${INSTALL} ${TOOLSDIR}/zfsinstall ${_DESTDIR}/root/bin
 	${_v}${INSTALL} ${TOOLSDIR}/destroygeom ${_DESTDIR}/root/bin
+	${_v}${INSTALL} ${TOOLSDIR}/watchttyv0 ${_DESTDIR}/root/bin
+
+	${_v}${INSTALL} -m 0555 ${TOOLSDIR}/jumpstart.sh ${_DESTDIR}/root/bin && \
+	${_v}${SED} -i '' -e 's,%%INSTALLER_URL%%,${INSTALLER_URL},' ${_DESTDIR}/root/bin/jumpstart.sh
+
 	${_v}for SCRIPT in ${SCRIPTS}; do \
 		${INSTALL} -m 0555 ${SCRIPTSDIR}/$${SCRIPT} ${_DESTDIR}/etc/rc.d/; \
 	done
@@ -458,8 +464,8 @@ ${WRKDIR}/.boot_done:
 	${_v}${MKDIR} ${WRKDIR}/disk/boot && ${CHOWN} root:wheel ${WRKDIR}/disk
 	${_v}${RM} -f ${_BOOTDIR}/kernel/kernel.debug
 	${_v}${CP} -rp ${_BOOTDIR}/kernel ${WRKDIR}/disk/boot
-	${_v}${CP} -rp ${_DESTDIR}/boot.config ${WRKDIR}/disk
-.for FILE in boot defaults device.hints loader loader.help *.rc *.4th
+	${_v}${CP} -rp ${_ROOTDIR}/boot.config ${WRKDIR}/disk
+.for FILE in boot defaults device.hints loader loader.help *.rc *.4th pmbr gptboot
 	${_v}${CP} -rp ${_DESTDIR}/boot/${FILE} ${WRKDIR}/disk/boot
 .endfor
 	${_v}${RM} -rf ${WRKDIR}/disk/boot/kernel/*.ko ${WRKDIR}/disk/boot/kernel/*.symbols
